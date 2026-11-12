@@ -1,0 +1,169 @@
+\documentclass[11pt, a4paper]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{kotex}
+\usepackage{amsmath, amssymb, mathtools}
+\usepackage{amsthm}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, calc}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins, breakable}
+
+\definecolor{qcDarkBlue}{HTML}{1A365D}
+\definecolor{qcAccentBlue}{HTML}{2B6CB0}
+\definecolor{qcLightBlue}{HTML}{EBF8FF}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=qcDarkBlue,
+    urlcolor=qcAccentBlue,
+    citecolor=qcDarkBlue
+}
+
+\newcommand{\ket}[1]{|#1\rangle}
+\newcommand{\bra}[1]{\langle#1|}
+\newcommand{\braket}[2]{\langle#1|#2\rangle}
+\newcommand{\ketbra}[2]{|#1\rangle\langle#2|}
+
+\lstset{
+    basicstyle=\small\ttfamily,
+    keywordstyle=\color{qcAccentBlue}\bfseries,
+    commentstyle=\color{gray},
+    stringstyle=\color{teal},
+    backgroundcolor=\color{qcLightBlue!30},
+    frame=single,
+    rulecolor=\color{gray!30},
+    breaklines=true,
+    tabsize=4,
+    showstringspaces=false
+}
+
+\theoremstyle{definition}
+\newtheorem{definition}{정의}[section]
+\newtheorem{theorem}{정리}[section]
+\newtheorem{example}{예제}[section]
+
+\newtcolorbox{notebox}[1]{
+    colback=qcLightBlue!50,
+    colframe=qcDarkBlue,
+    fonttitle=\bfseries\color{white},
+    title=#1,
+    arc=2mm,
+    left=8pt, right=8pt, top=8pt, bottom=8pt
+}
+
+\newtcolorbox{cautionbox}[1]{
+    colback=red!5,
+    colframe=red!75!black,
+    fonttitle=\bfseries\color{white},
+    title=#1,
+    arc=2mm,
+    left=8pt, right=8pt, top=8pt, bottom=8pt
+}
+
+\newtcolorbox{worksheetbox}[1]{
+    colback=blue!3,
+    colframe=qcAccentBlue,
+    fonttitle=\bfseries\color{white},
+    title=#1,
+    arc=2mm,
+    left=8pt, right=8pt, top=8pt, bottom=8pt
+}
+
+\title{\textbf{\Huge ‘양자컴퓨팅 이론\&실습 4주 부트캠프’}\\[0.4em]
+\LARGE Day 3 공식 강의노트: 양자 간섭과 2-qubit Grover 탐색 알고리즘 (Qiskit 실습)\\[0.2em]
+\large 비정렬 데이터 검색 한계 극복과 파동 간섭을 이용한 진폭 증폭의 수학적 원리}
+\author{\textbf{강사}: 서상협 ((주)큐렌스 / QRens)}
+\date{2026년 11월 27일}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+본 강의노트는 4주 부트캠프의 3일차(Day 3) 공식 교재입니다. 고전 알고리즘이 갖는 비정렬 검색 한계($O(N)$)를 넘어 파동의 보강·상쇄 간섭을 통해 정답의 확률 진폭만을 기하학적으로 증폭하는 그로버(Grover) 알고리즘의 원리를 정립합니다. Phase Oracle 연산자($O_\omega$)와 Diffusion 연산자($D = 2\ketbra{s}{s}-I$)의 선형대수학적 구조, 2차원 부분공간에서의 각도 $2\theta$ 회전 메커니즘, 2큐비트 ($N=4$) 환경에서 단 1회 질의만으로 100\% 정답을 검출하는 $4 \times 4$ 행렬 소거 증명, 그리고 Qiskit 프레임워크의 Little-Endian 표기 규칙과 양자 회로 조립 및 샷(Shots) 샘플링을 체계적으로 다룹니다.
+\end{abstract}
+
+\vspace{0.3cm}
+
+\begin{notebox}{Day 3 학습의 3대 핵심 기둥}
+\begin{enumerate}
+    \item \textbf{[양자 가속의 열쇠, 파동 간섭과 진폭 증폭]}: 단순 중첩 상태는 모든 경우의 수를 무작위로 찍는 것과 같으므로 가속이 불가능합니다. Grover 알고리즘은 오라클로 정답에 음의 부호($-1$)를 붙이고, 평균 반전 연산자(Diffusion)를 통해 오답은 상쇄 간섭으로 지우고 정답 진폭만 $100\%$로 끌어올립니다.
+    \item \textbf{[2차원 부분공간 회전의 기하학]}: $2^n$ 차원의 거대한 힐베르트 공간 내에서 알고리즘의 궤적은 정답 상태 $\ket{\omega}$와 비타겟 중첩 상태 $\ket{\omega^\perp}$가 생성하는 2차원 평면 위의 각도 회전($2\theta$)으로 정확히 축소되어 $O(\sqrt{N})$ 양자 가속의 엄밀한 수학적 당위성을 제공합니다.
+    \item \textbf{[소프트웨어 프레임워크 구현과 비트 순서]}: Qiskit 글로벌 표준 환경에서 2큐비트 회로를 조립할 때, 문자열의 맨 오른쪽 비트가 $q_0$인 Little-Endian 엔디언 규칙을 엄격히 이해하고 하드웨어 제어 표준을 체득합니다.
+\end{enumerate}
+\end{notebox}
+
+\begin{cautionbox}{Qiskit 비트 순서 주의: Little-Endian 표준}
+수학적 수식의 텐서곱 순서는 $\ket{q_0} \otimes \ket{q_1} = \ket{q_0 q_1}$ 이지만, Qiskit의 측정 bitstring 출력과 상태벡터 라벨은 \textbf{$\ket{q_1 q_0}$ (Little-Endian)} 순서입니다. 예를 들어 $q_0=1, q_1=0$인 상태를 Qiskit에서 출력하면 문자열 \texttt{'01'}로 나타나므로, 와이어 인덱스와 문자열 위치를 혼동하지 않아야 합니다.
+\end{cautionbox}
+
+% =============================================================================
+\section{비정렬 데이터 검색과 진폭 증폭의 당위성}
+% =============================================================================
+$N = 2^n$개의 정렬되지 않은 방대한 데이터베이스에서 특정 조건(오라클)을 만족하는 타겟 항목 $\omega$를 찾는 문제를 고려합니다.
+고전 컴퓨터는 인덱스가 정렬되어 있지 않으므로 최악의 경우 $N$번, 평균적으로 $N/2$번의 데이터 확인이 필요하며 시간 복잡도는 $O(N)$입니다.
+
+그러나 Grover 알고리즘은 \textbf{$O(\sqrt{N})$}의 질의만으로 타겟을 찾아냅니다. 특히 $N=4$ ($n=2$ 큐비트) 시나리오에서는 단 \textbf{1회의 Grover 반복}만으로 타겟을 $100\%$ 확정적으로 검출합니다.
+
+% =============================================================================
+\section{알고리즘의 2대 핵심 연산자}
+% =============================================================================
+Grover 알고리즘의 1회 반복(Grover Iteration)은 2개의 핵심 유니터리 연산자로 구성됩니다:
+
+\begin{enumerate}
+    \item \textbf{위상 오라클(Phase Oracle, $O_\omega$)}:
+    정답 항목 $\omega$를 검출하여 해당 상태의 진폭 부호만 음수($-1$)로 뒤집고, 오답 항목들은 보존합니다:
+    $$O_\omega\ket{x} = (-1)^{\delta_{x\omega}}\ket{x} = (I - 2\ketbra{\omega}{\omega})\ket{x}$$
+    \item \textbf{확산 연산자(Diffusion Operator, $D$, 평균 반전)}:
+    모든 상태의 진폭을 전체 상태의 평균 진폭 $\mu$를 기준으로 대칭 반전시킵니다:
+    $$D = 2\ketbra{s}{s} - I = H^{\otimes n}(2\ketbra{0}{0} - I)H^{\otimes n}$$
+    각 진폭 $a_x$는 다음의 평균 반사 공식에 의해 변환됩니다:
+    $$a_x' = 2\mu - a_x = \mu + (\mu - a_x)$$
+\end{enumerate}
+
+% =============================================================================
+\section{2큐비트 (\texorpdfstring{$N=4$}{N=4}) Grover 알고리즘 수식 증명}
+% =============================================================================
+
+\begin{worksheetbox}{[손계산 워크시트] $4 \times 4$ 행렬-벡터 연산을 통한 단 1회 $100\%$ 정답 검출 증명}
+\textbf{문제}: 2큐비트 ($N=4$) 시스템에서 타깃 항목이 $\ket{10}$일 때, 초기 균등 중첩 $\ket{s}$에 Phase Oracle $O_{10}$과 Diffusion 행렬 $D$를 작용시키는 전 과정을 유도하시오.
+
+\textbf{[단계별 유도 과정]}:
+\begin{enumerate}
+    \item \textbf{초기 균등 중첩 상태}:
+    $$\ket{s} = H^{\otimes 2}\ket{00} = \frac{1}{2}\begin{pmatrix} 1 \\ 1 \\ 1 \\ 1 \end{pmatrix} = \begin{pmatrix} 0.5 \\ 0.5 \\ 0.5 \\ 0.5 \end{pmatrix} \quad (P(x) = 25\% \text{ 균등})$$
+    \item \textbf{1단계: Phase Oracle $O_{10}$ 작용 (정답 $\ket{10}$의 부호만 반전)}:
+    $$\ket{\psi_1} = O_{10}\ket{s} = \begin{pmatrix} 1 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 \\ 0 & 0 & \mathbf{-1} & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} \begin{pmatrix} 1/2 \\ 1/2 \\ 1/2 \\ 1/2 \end{pmatrix} = \begin{pmatrix} 1/2 \\ 1/2 \\ \mathbf{-1/2} \\ 1/2 \end{pmatrix}$$
+    부호만 바뀌었을 뿐 확률은 $|-1/2|^2 = 25\%$로 여전히 균등하므로, Diffusion 연산자가 반드시 결합되어야 합니다.
+    \item \textbf{2단계: $4 \times 4$ Diffusion 행렬 $D = 2\ket{s}\bra{s} - I$ 직접 계산}:
+    $$\ket{s}\bra{s} = \frac{1}{4}\begin{pmatrix} 1 & 1 & 1 & 1 \\ 1 & 1 & 1 & 1 \\ 1 & 1 & 1 & 1 \\ 1 & 1 & 1 & 1 \end{pmatrix} \implies 2\ket{s}\bra{s} = \frac{1}{2}\begin{pmatrix} 1 & 1 & 1 & 1 \\ 1 & 1 & 1 & 1 \\ 1 & 1 & 1 & 1 \\ 1 & 1 & 1 & 1 \end{pmatrix}$$
+    $$D = 2\ket{s}\bra{s} - I = \frac{1}{2}\begin{pmatrix} \mathbf{-1} & 1 & 1 & 1 \\ 1 & \mathbf{-1} & 1 & 1 \\ 1 & 1 & \mathbf{-1} & 1 \\ 1 & 1 & 1 & \mathbf{-1} \end{pmatrix}$$
+    \item \textbf{3단계: 행렬-벡터 곱 $D\ket{\psi_1}$의 4개 행 개별 내적 소거}:
+    \begin{itemize}
+        \item 1행 ($\ket{00}$): $\frac{1}{2}\left[(-1)\frac{1}{2} + (1)\frac{1}{2} + (1)\left(-\frac{1}{2}\right) + (1)\frac{1}{2}\right] = \frac{1}{2}\left[-\frac{1}{2} + \frac{1}{2} - \frac{1}{2} + \frac{1}{2}\right] = \mathbf{0}$
+        \item 2행 ($\ket{01}$): $\frac{1}{2}\left[(1)\frac{1}{2} + (-1)\frac{1}{2} + (1)\left(-\frac{1}{2}\right) + (1)\frac{1}{2}\right] = \mathbf{0}$
+        \item 3행 ($\ket{10}$, 정답): $\frac{1}{2}\left[(1)\frac{1}{2} + (1)\frac{1}{2} + (-1)\left(-\frac{1}{2}\right) + (1)\frac{1}{2}\right] = \frac{1}{2}\left[\frac{1}{2} + \frac{1}{2} + \frac{1}{2} + \frac{1}{2}\right] = \mathbf{1.0}$
+        \item 4행 ($\ket{11}$): $\frac{1}{2}\left[(1)\frac{1}{2} + (1)\frac{1}{2} + (1)\left(-\frac{1}{2}\right) + (-1)\frac{1}{2}\right] = \mathbf{0}$
+    \end{itemize}
+    \item \textbf{최종 상태}:
+    $$\ket{\psi_{\mathrm{final}}} = \begin{pmatrix} 0 \\ 0 \\ 1.0 \\ 0 \end{pmatrix} = \ket{10} \implies P(10) = |1.0|^2 = \mathbf{100\%}$$
+\end{enumerate}
+\end{worksheetbox}
+
+% =============================================================================
+\section{기하학적 2차원 부분공간 회전 관점}
+% =============================================================================
+Grover 알고리즘의 동작은 고차원 힐베르트 공간 전체를 방황하는 것이 아니라, 타겟 상태 $\ket{\omega}$와 비타겟 중첩 상태 $\ket{\omega^\perp} = \frac{1}{\sqrt{N-1}}\sum_{x \neq \omega}\ket{x}$가 생성하는 \textbf{2차원 평면} 위에서 정확히 일어납니다.
+
+\begin{itemize}
+    \item 초기 상태 $\ket{s}$의 시작 각도: $\sin\theta = \braket{\omega}{s} = \frac{1}{\sqrt{N}} \implies N=4$일 때 $\sin\theta = \frac{1}{2} \implies \theta = 30^\circ$.
+    \item 1회 Grover 반복 $G = D \cdot O_\omega$의 기하학적 효과:
+    $\ket{\omega^\perp}$ 축에 대한 1차 대칭 반사($O_\omega$) 후 $\ket{s}$ 축에 대한 2차 대칭 반사($D$)가 결합되어, 상태벡터를 정답 축 방향으로 \textbf{정확히 $2\theta = 60^\circ$ 회전}시킵니다.
+    \item 최종 각도: $30^\circ + 60^\circ = 90^\circ$에 도달하므로, 상태벡터는 정확히 정답 축 $\ket{\omega}$에 일치하게 됩니다!
+\end{itemize}
+
+\end{document}

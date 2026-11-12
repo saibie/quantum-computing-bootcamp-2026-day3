@@ -1,0 +1,104 @@
+% ==============================================================================
+% Quantum Computing 12-Hour Course: Common LaTeX Beamer Preamble
+% ==============================================================================
+\usepackage{amsmath, amssymb, amsfonts, mathtools}
+\usepackage{booktabs}
+\usepackage{kotex}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, calc}
+
+% Syntax highlighting & listings
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{qcDarkBlue}{RGB}{20, 35, 60}
+\definecolor{qcAccentBlue}{RGB}{0, 114, 206}
+\definecolor{qcTeal}{RGB}{0, 168, 150}
+\definecolor{qcLightGray}{RGB}{246, 248, 251}
+\definecolor{qcCodeBg}{RGB}{242, 244, 247}
+\definecolor{qcKeyword}{RGB}{140, 30, 120}
+\definecolor{qcString}{RGB}{30, 120, 50}
+\definecolor{qcComment}{RGB}{110, 110, 120}
+
+\lstset{
+    backgroundcolor=\color{qcCodeBg},
+    basicstyle=\ttfamily\scriptsize,
+    keywordstyle=\color{qcKeyword}\bfseries,
+    stringstyle=\color{qcString},
+    commentstyle=\color{qcComment},
+    breaklines=true,
+    showstringspaces=false,
+    tabsize=4,
+    frame=single,
+    rulecolor=\color{qcAccentBlue!30},
+    numbers=left,
+    numberstyle=\tiny\color{qcComment},
+    numbersep=6pt,
+    xleftmargin=10pt,
+    xrightmargin=5pt
+}
+
+% Beamer Theme Settings
+\usefonttheme[onlymath]{serif}
+\setbeamertemplate{navigation symbols}{}
+\setbeamercolor{palette primary}{bg=qcDarkBlue, fg=white}
+\setbeamercolor{palette secondary}{bg=qcAccentBlue, fg=white}
+\setbeamercolor{palette tertiary}{bg=qcTeal, fg=white}
+\setbeamercolor{structure}{fg=qcAccentBlue}
+\setbeamercolor{titlelike}{parent=palette primary}
+\setbeamercolor{frametitle}{bg=qcDarkBlue, fg=white}
+\setbeamercolor{framesubtitle}{bg=qcDarkBlue, fg=white!85}
+\setbeamerfont{frametitle}{size=\normalsize, series=\bfseries}
+\setbeamerfont{framesubtitle}{size=\scriptsize, series=\normalfont}
+
+\makeatletter
+\setbeamertemplate{frametitle}{%
+    \nointerlineskip%
+    \begin{beamercolorbox}[wd=\paperwidth,sep=4pt,leftskip=8pt]{frametitle}%
+        {\usebeamerfont{frametitle}\insertframetitle}%
+        \ifx\insertframesubtitle\@empty%
+        \else%
+            \par\vspace{1pt}%
+            {\usebeamerfont{framesubtitle}\usebeamercolor[fg]{framesubtitle}\insertframesubtitle}%
+        \fi%
+    \end{beamercolorbox}%
+}
+\makeatother
+
+% Native Beamer Blocks (Rounded, theme-matched, 100% pause-compatible)
+\setbeamertemplate{blocks}[rounded][shadow=false]
+
+% 1. Standard block (formerly qcblock)
+\setbeamercolor{block title}{fg=white, bg=qcAccentBlue}
+\setbeamercolor{block body}{fg=qcDarkBlue, bg=qcLightGray}
+\setbeamerfont{block title}{size=\footnotesize, series=\bfseries}
+
+% 2. Alertblock (formerly qcalert)
+\setbeamercolor{block title alerted}{fg=white, bg=red!75!black}
+\setbeamercolor{block body alerted}{fg=black, bg=red!5}
+\setbeamerfont{block title alerted}{size=\footnotesize, series=\bfseries}
+
+% 3. Exampleblock (formerly qctip)
+\setbeamercolor{block title example}{fg=white, bg=qcTeal}
+\setbeamercolor{block body example}{fg=black, bg=green!5}
+\setbeamerfont{block title example}{size=\footnotesize, series=\bfseries}
+
+% Tight vertical block spacing
+\addtobeamertemplate{block begin}{\vspace{-3pt}}{}
+\addtobeamertemplate{block end}{}{\vspace{-4pt}}
+\addtobeamertemplate{block alerted begin}{\vspace{-3pt}}{}
+\addtobeamertemplate{block alerted end}{}{\vspace{-4pt}}
+\addtobeamertemplate{block example begin}{\vspace{-3pt}}{}
+\addtobeamertemplate{block example end}{}{\vspace{-4pt}}
+
+% Backward compatibility aliases
+\newenvironment{qcblock}[1]{\begin{block}{#1}}{\end{block}}
+\newenvironment{qcalert}[1]{\begin{alertblock}{#1}}{\end{alertblock}}
+\newenvironment{qctip}[1]{\begin{exampleblock}{#1}}{\end{exampleblock}}
+
+% Quantum Dirac Notation Macros
+\newcommand{\ket}[1]{|#1\rangle}
+\newcommand{\bra}[1]{\langle#1|}
+\newcommand{\braket}[2]{\langle#1|#2\rangle}
+\newcommand{\ketbra}[2]{|#1\rangle\langle#2|}
+\newcommand{\normsq}[1]{|#1|^2}

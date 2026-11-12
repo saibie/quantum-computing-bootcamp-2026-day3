@@ -1,0 +1,32 @@
+# Virtual Environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# LaTeX auxiliary files
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.vrb
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.xdv
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Compressed archives
+*.zip

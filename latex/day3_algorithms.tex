@@ -1,0 +1,673 @@
+\documentclass[aspectratio=169, 10pt]{beamer}
+\input{preamble.tex}
+
+\title[양자컴퓨팅 부트캠프 3일차]{양자컴퓨팅 이론\&실습 4일 부트캠프}
+\subtitle{3일차: Qiskit \& 양자 알고리즘 기초 (Grover 탐색)}
+\author{강사: 서상협 ((주)큐렌스)}
+\date{2026. 11. 27 (금)}
+
+\begin{document}
+
+% Slide 1
+\frame{\titlepage}
+
+% Slide 2
+\begin{frame}{3일차 핵심 질문: 양자 알고리즘의 본질}
+    \begin{center}
+        \LARGE \textbf{"중첩 상태에 모든 후보가 다 들어있다면,\\왜 그냥 측정하지 않고 복잡한 알고리즘을 돌릴까요?"}
+    \end{center}
+    \vspace{0.3cm}
+    \begin{qcblock}{3일차 학습 목표 (특강 핵심 요약)}
+        \begin{itemize}
+            \item \textbf{단순 중첩의 한계}: 모든 후보가 균등하게 중첩되어도, 측정하는 순간 단 하나의 값으로 무작위 붕괴합니다.
+            \item \textbf{양자 알고리즘의 핵심 무기}: 확률 진폭의 음수($-1$) 부호를 이용해 \textbf{오답은 상쇄시키고, 정답만 보강}합니다.
+            \item \textbf{수식 전개 과정 시연}: 4개 후보 중 1개를 단 1회 만에 100\% 찾아내는 \textbf{Grover 2단계 엔진}의 행렬 연산을 눈앞에서 직접 확인합니다.
+            \item \textbf{Qiskit SDK 첫걸음}: 순수 수학으로 확인한 Grover 회로를 Qiskit 1.x 코드로 조립하고 시뮬레이터로 검증합니다.
+        \end{itemize}
+    \end{qcblock}
+\end{frame}
+
+% Slide 3
+\begin{frame}{3일차 세부 운영안}
+    \begin{center}
+    \resizebox{0.95\textwidth}{!}{%
+    \begin{tabular}{clcp{7.5cm}}
+    \toprule
+    \textbf{구분} & \textbf{주제} & \textbf{시간} & \textbf{학습 목표 및 세부 활동} \\
+    \midrule
+    \textbf{1부} & \textbf{양자 간섭과 Grover 수식 유도} & 75분 & 단순 중첩의 한계 $\to$ 양자 간섭의 원리 $\to$ 오라클과 디퓨저 $\to$ \textbf{[수식 전개 시연] $N=4$ 행렬 소거 과정 유도} \\
+    \midrule
+    \textbf{휴식} & \textbf{중간 휴식 및 환경 점검} & 20분 & 질의응답, 두뇌 휴식, 2부 Qiskit 실습 환경(가상환경, 커널) 최종 확인 \\
+    \midrule
+    \textbf{2부} & \textbf{Qiskit 회로 구현 \& NISQ 한계} & 75분 & Qiskit 1.x 아키텍처 $\to$ \textbf{[Qiskit 실습] 2-qubit Grover 회로 조립} $\to$ AerSimulator 측정 $\to$ NISQ 하드웨어 한계 \\
+    \bottomrule
+    \end{tabular}%
+    }
+    \end{center}
+    \vspace{0.2cm}
+    \begin{qctip}{특강 진행 방식 안내}
+        1부의 수식 전개는 학생 실습이 아닌, \textbf{강사의 단계별 풀이 시연}을 통해 행렬 원소들이 어떻게 소거되는지 눈으로 추적하는 시간입니다.
+    \end{qctip}
+\end{frame}
+
+% Slide 4
+\begin{frame}{양자 알고리즘의 출발점: 단순 중첩의 한계}
+    \begin{qcblock}{단순 중첩(Superposition)의 치명적 한계}
+        \begin{itemize}
+            \item $n$개의 큐비트에 Hadamard를 적용하면 $2^n$개의 모든 상태가 동시에 공존합니다:
+            $$\ket{s} = \frac{1}{\sqrt{N}}\sum_{x=0}^{N-1}\ket{x} \quad (N = 2^n)$$
+            \item 하지만 Born 규칙에 의해 측정하는 순간, $2^n$개 중 \textbf{단 하나의 상태로 무작위 붕괴(Collapse)}합니다.
+            \item 각 상태가 뽑힐 확률은 $1/N$에 불과하므로, 이는 동전을 무작위로 던져 답을 찍는 고전 난수 탐색(Random Search)과 다를 바 없습니다.
+        \end{itemize}
+    \end{qcblock}
+    \vspace{0.2cm}
+    \begin{qcalert}{양자 컴퓨터의 진짜 도전 과제}
+        측정하기 전에, $2^n$개의 상태들 중 \textbf{정답 상태의 확률만 극대화}하고 \textbf{오답 상태의 확률은 0으로 소멸}시켜야 합니다.
+    \end{qcalert}
+\end{frame}
+
+% Slide 5
+\begin{frame}{양자 컴퓨팅의 유일한 해법: 양자 간섭(Interference)}
+    \begin{qcblock}{고전 확률 vs 양자 확률 진폭}
+        \begin{itemize}
+            \item \textbf{고전 확률}: 모든 확률 $p_i$는 $0 \le p_i \le 1$인 실수입니다.
+            더하면 항상 커지며($0.25 + 0.25 = 0.5$), 결코 서로를 취소시킬 수 없습니다.
+            \item \textbf{양자 확률 진폭}: 파동처럼 \textbf{음수($-1$)나 복소수 위상}을 가질 수 있습니다:
+            $$a_1 = +0.5, \quad a_2 = -0.5 \implies a_1 + a_2 = 0 \implies |a_1 + a_2|^2 = 0$$
+        \end{itemize}
+    \end{qcblock}
+    \vspace{0.2cm}
+    \begin{qcalert}{간섭의 두 얼굴}
+        \begin{itemize}
+            \item \textbf{상쇄 간섭(Destructive)}: 서로 다른 경로의 진폭 부호가 반대일 때 $\implies$ 오답 확률 소멸!
+            \item \textbf{보강 간섭(Constructive)}: 서로 다른 경로의 진폭 부호가 같을 때 $\implies$ 정답 확률 증폭!
+        \end{itemize}
+    \end{qcalert}
+\end{frame}
+
+% Slide 6
+\begin{frame}{비정렬 데이터 탐색 문제 (Unstructured Search)}
+    \begin{qcblock}{문제 정의: 정렬되지 않은 $N$개의 데이터}
+        $N = 2^n$개의 항목 중 단 하나만이 찾고자 하는 정답 $\omega$입니다.
+        데이터가 정렬되어 있지 않으므로(Unsorted), 하나씩 확인해보는 것 외에 단서가 없습니다.
+    \end{qcblock}
+    \vspace{0.2cm}
+    \begin{itemize}
+        \item \textbf{고전 컴퓨터 (순차 탐색)}:
+        \begin{itemize}
+            \item 최악의 경우 $N$번, 평균적으로 $N/2$번 확인해야 정답을 찾습니다.
+            \item 시간 복잡도: $\mathcal{O}(N)$
+        \end{itemize}
+        \item \textbf{양자 컴퓨터 (Grover 알고리즘, 1996)}:
+        \begin{itemize}
+            \item 양자 중첩과 간섭을 절묘하게 제어하여 단 $\mathcal{O}(\sqrt{N})$번 만에 정답을 찾습니다!
+            \item $N = 10^6$(100만)일 때: 고전 50만 번 vs 양자 1,000번 (500배 속도 향상!)
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+% Slide 7
+\begin{frame}{왜 $\mathcal{O}(\sqrt{N})$인가? 2차원 기하학적 회전의 원리}
+    \begin{qcblock}{전체 상태 공간의 2차원 축소}
+        $N$차원의 거대한 Hilbert 공간도 Grover 알고리즘 안에서는 단 \textbf{2개의 직교 벡터가 이루는 2차원 평면}으로 축소됩니다:
+        \begin{itemize}
+            \item 정답 상태: $\ket{\omega}$
+            \item 오답 상태들의 균등 중첩: $\ket{\omega^\perp} = \frac{1}{\sqrt{N-1}}\sum_{x \neq \omega}\ket{x}$
+        \end{itemize}
+    \end{qcblock}
+    \vspace{0.2cm}
+    \begin{itemize}
+        \item 초기 균등 중첩 $\ket{s}$가 오답 축 $\ket{\omega^\perp}$과 이루는 초기 각도:
+        $$\sin\theta = \langle \omega | s \rangle = \frac{1}{\sqrt{N}} \implies \theta \approx \frac{1}{\sqrt{N}}$$
+        \item Grover 1회 반복마다 상태 벡터는 정답 축 $\ket{\omega}$을 향해 정확히 $2\theta$씩 회전합니다.
+        \item $90^\circ(\pi/2)$까지 회전하는 데 필요한 횟수: $R \approx \frac{\pi/2}{2\theta} \approx \frac{\pi}{4}\sqrt{N} = \mathcal{O}(\sqrt{N})$
+    \end{itemize}
+\end{frame}
+
+% Slide 8
+\begin{frame}{Grover 알고리즘의 2단계 엔진 개요}
+    Grover 반복(Grover Iteration)은 2개의 연속된 유니타리 연산자로 구성됩니다:
+    \vspace{0.2cm}
+    \begin{center}
+    \begin{tikzpicture}[thick, scale=1.0]
+        \node[draw, fill=qcAccentBlue!20, minimum width=2.8cm, minimum height=1.0cm, align=center] (ora) at (0, 0) {\textbf{1단계: Phase Oracle}\\($R_\omega = I - 2\ket{\omega}\bra{\omega}$)};
+        \node[draw, fill=qcDarkBlue!15, minimum width=2.8cm, minimum height=1.0cm, align=center] (dif) at (4.5, 0) {\textbf{2단계: Diffusion}\\($D = 2\ket{s}\bra{s} - I$)};
+        \draw[->, very thick] (ora) -- (dif) node[midway, above] {\small 부호 반전};
+        \draw[->, very thick] (dif) -- (7.5, 0) node[right] {\small 정답 증폭!};
+        \draw[<-] (ora) -- (-2.2, 0) node[left] {\small $\ket{s} = H^{\otimes n}\ket{0}$};
+    \end{tikzpicture}
+    \end{center}
+    \vspace{0.2cm}
+    \begin{qcblock}{2개 엔진의 역할 분담}
+        \begin{itemize}
+            \item \textbf{Oracle ($R_\omega$)}: 정답 $\omega$의 위상만 콕 집어서 뒤집습니다 ($\ket{\omega} \to -\ket{\omega}$).
+            \item \textbf{Diffusion ($D$)}: 모든 상태의 평균값을 기준으로 대칭 반사시켜 정답 진폭을 솟구치게 만듭니다.
+        \end{itemize}
+    \end{qcblock}
+\end{frame}
+
+% Slide 9
+\begin{frame}{[수식 시연 시나리오] 2큐비트 4개 중 1개 찾기 ($N=4$)}
+    \begin{qcblock}{구체적 시연 시나리오 설정}
+        \begin{itemize}
+            \item 큐비트 수: $n = 2 \implies N = 2^2 = 4$개의 후보 상태: $\{\ket{00}, \ket{01}, \ket{10}, \ket{11}\}$
+            \item 찾고자 하는 정답 타깃: \textbf{$\ket{\omega} = \ket{10}$ (3번째 원소)}
+            \item 목표: 강사의 수식 유도를 통해, 단 1회의 Grover 연산으로 $\ket{10}$의 확률이 어떻게 $25\% \to 100\%$로 도약하는지 행렬 연산으로 증명합니다.
+        \end{itemize}
+    \end{qcblock}
+    \vspace{0.2cm}
+    \begin{qctip}{강의 팁: 눈으로 따라오는 수식 전개}
+        연습장에 계산하실 필요 없이, 화면에 펼쳐지는 $4 \times 4$ 행렬과 벡터의 곱셈에서 \textbf{어떻게 마이너스 부호가 오답들을 0으로 지워버리는지} 주목해 주십시오.
+    \end{qctip}
+\end{frame}
+
+% Slide 10
+\begin{frame}{[수식 시연 Step 0] 초기 균등 중첩 상태 $\ket{s}$}
+    2개의 큐비트에 각각 Hadamard 게이트를 적용하여 출발합니다:
+    $$\ket{s} = (H\ket{0}) \otimes (H\ket{0}) = \frac{\ket{0} + \ket{1}}{\sqrt{2}} \otimes \frac{\ket{0} + \ket{1}}{\sqrt{2}}$$
+    \vspace{0.1cm}
+    $$\ket{s} = \frac{1}{2}\ket{00} + \frac{1}{2}\ket{01} + \frac{1}{2}\ket{10} + \frac{1}{2}\ket{11} = \begin{pmatrix} 1/2 \\ 1/2 \\ 1/2 \\ 1/2 \end{pmatrix} = \begin{pmatrix} 0.5 \\ 0.5 \\ 0.5 \\ 0.5 \end{pmatrix}$$
+    \vspace{0.1cm}
+    \begin{qcblock}{초기 상태의 확률 분포}
+        \begin{itemize}
+            \item 모든 상태의 확률 진폭: $a_x = 0.5$
+            \item 측정 시 각 상태가 나올 확률: $P(x) = |0.5|^2 = 0.25$ (\textbf{각각 25\%로 완벽히 균등})
+            \item 이 상태에서 측정하면 정답 $\ket{10}$을 맞출 확률은 고작 4분의 1입니다.
+        \end{itemize}
+    \end{qcblock}
+\end{frame}
+
+% Slide 11
+\begin{frame}{[수식 시연 Step 1] Phase Oracle $R_\omega$의 수학적 정의}
+    \begin{qcblock}{오라클 연산자 $R_\omega$의 정의}
+        정답 $\ket{\omega}$의 위상만 $-1$로 반전시키고, 나머지 오답 상태는 그대로 유지합니다:
+        $$R_\omega\ket{x} = \begin{cases} -\ket{x} & (x = \omega) \\ +\ket{x} & (x \neq \omega) \end{cases} \iff R_\omega = I - 2\ket{\omega}\bra{\omega}$$
+    \end{qcblock}
+    \vspace{0.2cm}
+    정답이 $\ket{10}$ (3번째 기저 벡터)일 때 $R_{10}$의 $4 \times 4$ 행렬 표현:
+    $$R_{10} = \begin{pmatrix} 1 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 \\ 0 & 0 & 1 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} - 2\begin{pmatrix} 0 \\ 0 \\ 1 \\ 0 \end{pmatrix}\begin{pmatrix} 0 & 0 & 1 & 0 \end{pmatrix} = \begin{pmatrix} 1 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 \\ 0 & 0 & \mathbf{-1} & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix}$$
+\end{frame}
+
+% Slide 12
+\begin{frame}{[수식 시연 Step 1] 오라클 작용 결과: 정답 부호 반전}
+    초기 균등 중첩 상태 $\ket{s}$에 오라클 $R_{10}$을 곱합니다:
+    $$\ket{\psi_1} = R_{10}\ket{s} = \begin{pmatrix} 1 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 \\ 0 & 0 & \mathbf{-1} & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} \begin{pmatrix} 1/2 \\ 1/2 \\ 1/2 \\ 1/2 \end{pmatrix} = \begin{pmatrix} 1/2 \\ 1/2 \\ \mathbf{-1/2} \\ 1/2 \end{pmatrix}$$
+    \vspace{0.1cm}
+    \begin{qcblock}{오라클 작용 후 진폭 벡터 분석}
+        \begin{itemize}
+            \item 오답 상태 ($\ket{00}, \ket{01}, \ket{11}$): 진폭 $+0.5$ 유지
+            \item 정답 상태 ($\ket{10}$): 진폭이 $\mathbf{-0.5}$로 반전됨
+        \end{itemize}
+    \end{qcblock}
+\end{frame}
+
+% Slide 13
+\begin{frame}{[중간 점검] 오라클만 적용하고 바로 측정하면?}
+    \begin{center}
+        \LARGE \textbf{"정답의 부호가 $-0.5$로 뒤집혔으니,\\지금 바로 측정하면 정답이 나올까요?"}
+    \end{center}
+    \vspace{0.3cm}
+    \begin{qcalert}{절대 측정해서는 안 되는 이유: 절대값 제곱!}
+        Born 규칙에 의한 측정 확률을 다시 계산해 봅니다:
+        \begin{itemize}
+            \item 오답 확률: $P(00) = |+0.5|^2 = 0.25$, \quad $P(01) = |+0.5|^2 = 0.25$, \quad $P(11) = 0.25$
+            \item 정답 확률: $P(10) = |\mathbf{-0.5}|^2 = \mathbf{0.25}$ ($25\%$)
+        \end{itemize}
+        \textbf{마이너스 부호는 제곱하면 플러스가 되므로, 측정 확률은 여전히 25\%로 똑같습니다!}
+    \end{qcalert}
+    \vspace{0.2cm}
+    $\implies$ 이 마이너스 부호를 양수 진폭으로 전환하며 오답을 깎아낼 \textbf{2단계 Diffusion}이 반드시 필요합니다!
+\end{frame}
+
+% Slide 14
+\begin{frame}{[수식 시연 Step 2] Diffusion Operator $D$ 행렬 유도 (외적)}
+    \begin{qcblock}{디퓨전 연산자의 정의}
+        $$D = 2\ket{s}\bra{s} - I$$
+    \end{qcblock}
+    \vspace{0.2cm}
+    먼저 프로젝션 외적 행렬 $\ket{s}\bra{s}$를 구합니다:
+    $$\ket{s}\bra{s} = \begin{pmatrix} 1/2 \\ 1/2 \\ 1/2 \\ 1/2 \end{pmatrix} \begin{pmatrix} 1/2 & 1/2 & 1/2 & 1/2 \end{pmatrix} = \begin{pmatrix} 1/4 & 1/4 & 1/4 & 1/4 \\ 1/4 & 1/4 & 1/4 & 1/4 \\ 1/4 & 1/4 & 1/4 & 1/4 \\ 1/4 & 1/4 & 1/4 & 1/4 \end{pmatrix}$$
+    \vspace{0.1cm}
+    여기에 2를 곱하면 모든 원소가 $1/2$인 행렬이 됩니다:
+    $$2\ket{s}\bra{s} = \begin{pmatrix} 1/2 & 1/2 & 1/2 & 1/2 \\ 1/2 & 1/2 & 1/2 & 1/2 \\ 1/2 & 1/2 & 1/2 & 1/2 \\ 1/2 & 1/2 & 1/2 & 1/2 \end{pmatrix}$$
+\end{frame}
+
+% Slide 15
+\begin{frame}{[수식 시연 Step 2] $D$ 행렬 감산 완성}
+    이제 $2\ket{s}\bra{s}$에서 단위행렬 $I$를 뺍니다:
+    $$D = \begin{pmatrix} 1/2 & 1/2 & 1/2 & 1/2 \\ 1/2 & 1/2 & 1/2 & 1/2 \\ 1/2 & 1/2 & 1/2 & 1/2 \\ 1/2 & 1/2 & 1/2 & 1/2 \end{pmatrix} - \begin{pmatrix} 1 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 \\ 0 & 0 & 1 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix}$$
+    \vspace{0.2cm}
+    \begin{qcblock}{$4 \times 4$ Diffusion 행렬 완성}
+        $$D = \begin{pmatrix}
+        \mathbf{-1/2} & 1/2 & 1/2 & 1/2 \\
+        1/2 & \mathbf{-1/2} & 1/2 & 1/2 \\
+        1/2 & 1/2 & \mathbf{-1/2} & 1/2 \\
+        1/2 & 1/2 & 1/2 & \mathbf{-1/2}
+        \end{pmatrix}$$
+        대각 원소만 $\frac{1}{2} - 1 = \mathbf{-\frac{1}{2}}$이고, 비대각 원소는 모두 $\mathbf{+\frac{1}{2}}$입니다!
+    \end{qcblock}
+\end{frame}
+
+% Slide 16
+\begin{frame}{[수식 시연 Step 3] 행렬 곱 $D \times \ket{\psi_1}$: 1행($\ket{00}$) 계산}
+    이제 완성된 디퓨저 행렬 $D$를 오라클을 거친 상태벡터 $\ket{\psi_1}$에 곱합니다:
+    $$\begin{pmatrix}
+    \mathbf{-1/2} & \mathbf{1/2} & \mathbf{1/2} & \mathbf{1/2} \\
+    1/2 & -1/2 & 1/2 & 1/2 \\
+    1/2 & 1/2 & -1/2 & 1/2 \\
+    1/2 & 1/2 & 1/2 & -1/2
+    \end{pmatrix}
+    \begin{pmatrix} \mathbf{1/2} \\ \mathbf{1/2} \\ \mathbf{-1/2} \\ \mathbf{1/2} \end{pmatrix}$$
+    \vspace{0.1cm}
+    \begin{qcblock}{결과 벡터의 1번째 원소 ($\ket{00}$ 상태) 내적 전개}
+        $$a_{00}' = \left(-\frac{1}{2}\right)\left(\frac{1}{2}\right) + \left(\frac{1}{2}\right)\left(\frac{1}{2}\right) + \left(\frac{1}{2}\right)\left(-\frac{1}{2}\right) + \left(\frac{1}{2}\right)\left(\frac{1}{2}\right)$$
+        $$a_{00}' = -\frac{1}{4} + \frac{1}{4} - \frac{1}{4} + \frac{1}{4} = \mathbf{0}$$
+        $\blacktriangleright$ \textbf{오답 $\ket{00}$의 확률 진폭이 $+1/4$과 $-1/4$의 상쇄 간섭으로 정확히 0이 되었습니다!}
+    \end{qcblock}
+\end{frame}
+
+% Slide 17
+\begin{frame}{[수식 시연 Step 3] 행렬 곱 $D \times \ket{\psi_1}$: 2행($\ket{01}$) 계산}
+    동일하게 2번째 행($\ket{01}$ 상태)의 내적을 계산합니다:
+    $$\begin{pmatrix}
+    -1/2 & 1/2 & 1/2 & 1/2 \\
+    \mathbf{1/2} & \mathbf{-1/2} & \mathbf{1/2} & \mathbf{1/2} \\
+    1/2 & 1/2 & -1/2 & 1/2 \\
+    1/2 & 1/2 & 1/2 & -1/2
+    \end{pmatrix}
+    \begin{pmatrix} \mathbf{1/2} \\ \mathbf{1/2} \\ \mathbf{-1/2} \\ \mathbf{1/2} \end{pmatrix}$$
+    \vspace{0.1cm}
+    \begin{qcblock}{결과 벡터의 2번째 원소 ($\ket{01}$ 상태) 내적 전개}
+        $$a_{01}' = \left(\frac{1}{2}\right)\left(\frac{1}{2}\right) + \left(-\frac{1}{2}\right)\left(\frac{1}{2}\right) + \left(\frac{1}{2}\right)\left(-\frac{1}{2}\right) + \left(\frac{1}{2}\right)\left(\frac{1}{2}\right)$$
+        $$a_{01}' = \frac{1}{4} - \frac{1}{4} - \frac{1}{4} + \frac{1}{4} = \mathbf{0}$$
+        $\blacktriangleright$ \textbf{오답 $\ket{01}$의 확률 진폭 역시 부호가 서로 상쇄되어 정확히 0이 되었습니다!}
+    \end{qcblock}
+\end{frame}
+
+% Slide 18
+\begin{frame}{[수식 시연 Step 3] 행렬 곱 $D \times \ket{\psi_1}$: 3행($\ket{10}$, 정답) 계산}
+    이제 정답인 3번째 행($\ket{10}$ 상태)의 내적을 계산합니다. 마이너스가 겹치는 순간을 주목하십시오:
+    $$\begin{pmatrix}
+    -1/2 & 1/2 & 1/2 & 1/2 \\
+    1/2 & -1/2 & 1/2 & 1/2 \\
+    \mathbf{1/2} & \mathbf{1/2} & \mathbf{-1/2} & \mathbf{1/2} \\
+    1/2 & 1/2 & 1/2 & -1/2
+    \end{pmatrix}
+    \begin{pmatrix} \mathbf{1/2} \\ \mathbf{1/2} \\ \mathbf{-1/2} \\ \mathbf{1/2} \end{pmatrix}$$
+    \vspace{0.1cm}
+    \begin{qcalert}{결과 벡터의 3번째 원소 ($\ket{10}$ 정답 상태) 내적 전개}
+        $$a_{10}' = \left(\frac{1}{2}\right)\left(\frac{1}{2}\right) + \left(\frac{1}{2}\right)\left(\frac{1}{2}\right) + \mathbf{\left(-\frac{1}{2}\right)\left(-\frac{1}{2}\right)} + \left(\frac{1}{2}\right)\left(\frac{1}{2}\right)$$
+        $$a_{10}' = \frac{1}{4} + \frac{1}{4} + \mathbf{\frac{1}{4}} + \frac{1}{4} = \frac{4}{4} = \mathbf{1.0}$$
+        $\blacktriangleright$ \textbf{대각선의 $-1/2$과 오라클의 $-1/2$이 곱해져 양수($+1/4$)가 되며, 4개가 모두 더해져 정확히 1.0으로 완벽 증폭!}
+    \end{qcalert}
+\end{frame}
+
+% Slide 19
+\begin{frame}{[수식 시연 Step 3] 행렬 곱 $D \times \ket{\psi_1}$: 4행($\ket{11}$) 계산 및 최종 결과}
+    마지막 4번째 행($\ket{11}$ 상태)의 내적 계산:
+    $$a_{11}' = \left(\frac{1}{2}\right)\left(\frac{1}{2}\right) + \left(\frac{1}{2}\right)\left(\frac{1}{2}\right) + \left(\frac{1}{2}\right)\left(-\frac{1}{2}\right) + \left(-\frac{1}{2}\right)\left(\frac{1}{2}\right) = \frac{1}{4} + \frac{1}{4} - \frac{1}{4} - \frac{1}{4} = \mathbf{0}$$
+    \vspace{0.1cm}
+    \begin{qcblock}{최종 상태 벡터: 단 1회 만의 100\% 정답 결정}
+        $$\ket{\psi_{\text{final}}} = D R_{10}\ket{s} = \begin{pmatrix} \mathbf{0} \\ \mathbf{0} \\ \mathbf{1.0} \\ \mathbf{0} \end{pmatrix} = \ket{10}$$
+        \begin{itemize}
+            \item 오답 확률: $P(00) = 0\%$, $P(01) = 0\%$, $P(11) = 0\%$ (\textbf{완전 소멸})
+            \item 정답 확률: $P(10) = |1.0|^2 = \mathbf{100\%}$ (\textbf{완벽한 1.0 달성})
+        \end{itemize}
+    \end{qcblock}
+\end{frame}
+
+% Slide 20
+\begin{frame}{[수식 대조] 기하학적 평균 반사 공식과의 일치성 검증}
+    행렬을 쓰지 않고 고전 스칼라 공식인 \textbf{평균에 대한 대칭 반사(Inversion about the mean)}로도 대조해 봅니다:
+    $$x_i' = 2\mu - x_i \quad \left(\mu = \frac{1}{N}\sum_{k=0}^{N-1}x_k\right)$$
+    \vspace{0.1cm}
+    \begin{qcblock}{평균값 $\mu$ 계산}
+        오라클 통과 후 진폭: $[0.5, \; 0.5, \; \mathbf{-0.5}, \; 0.5]$
+        $$\mu = \frac{0.5 + 0.5 + (-0.5) + 0.5}{4} = \frac{1.0}{4} = \mathbf{0.25}$$
+    \end{qcblock}
+    \vspace{0.1cm}
+    \begin{itemize}
+        \item \textbf{오답 진폭 ($0.5$)}: $x' = 2(0.25) - 0.5 = 0.5 - 0.5 = \mathbf{0}$
+        \item \textbf{정답 진폭 ($-0.5$)}: $x' = 2(0.25) - (-0.5) = 0.5 + 0.5 = \mathbf{1.0}$
+    \end{itemize}
+    $\blacktriangleright$ $4 \times 4$ 유니타리 행렬 곱 $D\ket{\psi}$와 스칼라 평균 반사 공식의 결과가 정확하게 일치함을 확인했습니다!
+\end{frame}
+
+% Slide 21
+\begin{frame}{[기하학적 확인] 2차원 평면에서의 $2\theta = 60^\circ$ 회전}
+    \begin{qcblock}{초기 각도와 1회 회전량}
+        \begin{itemize}
+            \item $N = 4$일 때 초기 각도: $\sin\theta = 1/\sqrt{4} = 1/2 \implies \theta = 30^\circ$
+            \item 오라클(오답축 반사) + 디퓨전(초기상태축 반사) 결합 $\implies$ 상태가 \textbf{$2\theta = 60^\circ$} 만큼 정답축으로 회전!
+            \item 1회 회전 후 상태의 최종 각도: $30^\circ + 60^\circ = \mathbf{90^\circ}$
+        \end{itemize}
+    \end{qcblock}
+    \vspace{0.2cm}
+    \begin{center}
+    \begin{tikzpicture}[scale=0.95, thick]
+        \draw[->] (0, 0) -- (4.0, 0) node[right] {오답 축 $\ket{\omega^\perp}$};
+        \draw[->] (0, 0) -- (0, 2.5) node[above] {정답 축 $\ket{\omega}$};
+        \draw[qcAccentBlue, thick, ->] (0, 0) -- (3.0, 1.732) node[above right] {초기 상태 $\ket{s}$ ($30^\circ$)};
+        \draw[qcDarkBlue, very thick, ->] (0, 0) -- (0, 2.3) node[left] {\small $\ket{\psi_{\mathrm{final}}}$ ($90^\circ$)};
+        \draw[->, red, thick] (2.0, 1.15) arc (30:90:2.3);
+        \node[red] at (1.6, 2.0) {$+60^\circ$ 회전};
+    \end{tikzpicture}
+    \end{center}
+    $\blacktriangleright$ $90^\circ$는 정답 축 $\ket{\omega}$과 정확히 일치하므로, 정답 확률이 수학적으로 $100\%$가 됩니다.
+\end{frame}
+
+% Slide 22
+\begin{frame}{1부 요약 및 20분 중간 휴식 안내}
+    \begin{qcblock}{1부 핵심 달성도 체크}
+        \begin{itemize}
+            \item $\checkmark$ 단순 중첩의 한계: 측정 시 무작위 붕괴 $\implies$ 양자 간섭의 필연성 확인
+            \item $\checkmark$ 오라클의 역할: 정답 상태만 음수 부호($-1$)로 마킹 ($R_\omega = I - 2\ket{\omega}\bra{\omega}$)
+            \item $\checkmark$ 디퓨전의 역할: $D = 2\ket{s}\bra{s} - I$ 행렬을 통해 오답을 상쇄($0$)시키고 정답을 증폭($1.0$)
+            \item $\checkmark$ 4개 행 개별 내적 유도: $+1/4 - 1/4$ 소거와 $+1/4 \times 4$ 보강 과정 확인
+        \end{itemize}
+    \end{qcblock}
+    \vspace{0.2cm}
+    \begin{qctip}{20분 휴식 시간 (Part 2 Qiskit 핸즈온 준비)}
+        \begin{itemize}
+            \item 휴식 후 2부에서는 이 Grover 회로를 \textbf{Qiskit 1.x 코드로 직접 회로를 조립하고 시뮬레이션}합니다.
+            \item Jupyter Notebook 커널(\texttt{day3\_qiskit\_grover.ipynb}) 연결 상태를 확인해 주시기 바랍니다.
+        \end{itemize}
+    \end{qctip}
+\end{frame}
+
+% Slide 23
+\begin{frame}{2부 시작: 이론에서 Qiskit 코드로의 전환}
+    \begin{center}
+        \LARGE \textbf{"손으로 확인한 오라클과 디퓨저를\\Qiskit 1.x 양자 회로로 어떻게 구현할까요?"}
+    \end{center}
+    \vspace{0.3cm}
+    \begin{qcblock}{2부 실습 로드맵 (75분)}
+        \begin{enumerate}
+            \item \textbf{Qiskit 1.x 핵심 구조}: `QuantumCircuit`, 게이트 적재, 엔디언 규칙
+            \item \textbf{오라클 회로화}: 위상 반전 $-1$을 게이트로 만드는 CZ 및 $X$-샌드위치 기법
+            \item \textbf{디퓨저 회로화}: $2\ket{s}\bra{s} - I$를 $H \to X \to CZ \to X \to H$ 게이트 열로 구현
+            \item \textbf{시뮬레이션 및 측정}: `qiskit-aer`로 1024회 측정하여 $100\%$ 수렴 확인
+            \item \textbf{실제 하드웨어 한계}: NISQ 양자 컴퓨터의 노이즈와 양자 알고리즘의 현실적 지평
+        \end{enumerate}
+    \end{qcblock}
+\end{frame}
+
+% Slide 24
+\begin{frame}{Qiskit SDK 1.x 핵심 아키텍처 개요}
+    \begin{qcblock}{현대 Qiskit 1.x의 워크플로우}
+        \begin{itemize}
+            \item Qiskit 1.0+ 버전에서는 과거의 복잡한 실행 구문(\texttt{execute()}, \texttt{Aer.get\_backend()})이 폐기되고 간결한 표준 패턴으로 통합되었습니다:
+        \end{itemize}
+    \end{qcblock}
+    \vspace{0.2cm}
+    \begin{center}
+    \begin{tikzpicture}[thick, font=\small]
+        \node[draw, fill=qcAccentBlue!20, rounded corners=3pt, minimum width=3.2cm, minimum height=1.0cm, align=center] (qc) at (0, 0) {\textbf{1. QuantumCircuit}\\\scriptsize (회로 설계 \& 게이트 적재)};
+        \node[draw, fill=qcTeal!20, rounded corners=3pt, minimum width=3.2cm, minimum height=1.0cm, align=center] (sim) at (5.0, 0) {\textbf{2. AerSimulator}\\\scriptsize (고성능 로컬 시뮬레이션)};
+        \node[draw, fill=orange!20, rounded corners=3pt, minimum width=3.2cm, minimum height=1.0cm, align=center] (res) at (10.0, 0) {\textbf{3. get\_counts()}\\\scriptsize (1024회 측정 히스토그램)};
+        \draw[->, very thick, qcDarkBlue] (qc) -- (sim) node[midway, above] {\scriptsize .run(qc, shots=1024)};
+        \draw[->, very thick, qcDarkBlue] (sim) -- (res) node[midway, above] {\scriptsize .result()};
+    \end{tikzpicture}
+    \end{center}
+    \vspace{0.2cm}
+    \begin{itemize}
+        \item \textbf{QuantumCircuit(q, c)}: 양자 레지스터 $q$개와 고전 측정 레지스터 $c$개를 선언
+        \item \textbf{AerSimulator()}: 고성능 로컬 C++ 시뮬레이션 엔진 (`qiskit-aer` 패키지)
+    \end{itemize}
+\end{frame}
+
+% Slide 25
+\begin{frame}[fragile]{[Qiskit 기초] 회로 초기화 및 균등 중첩 준비}
+    \begin{lstlisting}[language=Python]
+from qiskit import QuantumCircuit
+
+# 2개의 양자 비트, 2개의 고전 비트 생성
+qc = QuantumCircuit(2, 2)
+
+# Step 0: 모든 큐비트에 Hadamard 게이트 적용 -> 균등 중첩 |s> 생성
+qc.h(0)
+qc.h(1)
+# 또는 리스트로 한 번에: qc.h([0, 1])
+
+print(qc.draw(output='text'))
+# q_0: -[H]-
+# q_1: -[H]-
+\end{lstlisting}
+    \vspace{0.1cm}
+    \begin{qcblock}{상태 벡터 확인}
+        이 시점에서 회로의 상태는 1부에서 손계산했던 $\ket{s} = \frac{1}{2}[1, 1, 1, 1]^T$ 상태입니다.
+    \end{qcblock}
+\end{frame}
+
+% Slide 26
+\begin{frame}{[필수 주의] Qiskit의 Little-Endian 표기법}
+    \begin{qcalert}{Qiskit과 수식(수학)의 비트 순서 차이}
+        \begin{itemize}
+            \item 일반 수학 교재(Big-Endian): $\ket{q_0 q_1}$ 순서 ($q_0$가 상위 비트)
+            \item \textbf{Qiskit (Little-Endian)}: $\ket{q_1 q_0}$ 순서 (\textbf{$q_0$가 가장 오른쪽 최하위 비트!})
+        \end{itemize}
+    \end{qcalert}
+    \vspace{0.2cm}
+    \begin{center}
+    \begin{tabular}{ccc}
+    \toprule
+    \textbf{원하는 상태 ($\ket{q_0 q_1}$)} & \textbf{개별 비트 값} & \textbf{Qiskit 문자열 키} \\
+    \midrule
+    $\ket{10}$ ($q_0=1, q_1=0$) & $q_0=1, \; q_1=0$ & \textbf{'01'} ($q_1 q_0$) \\
+    $\ket{01}$ ($q_0=0, q_1=1$) & $q_0=0, \; q_1=1$ & \textbf{'10'} ($q_1 q_0$) \\
+    $\ket{11}$ ($q_0=1, q_1=1$) & $q_0=1, \; q_1=1$ & \textbf{'11'} ($q_1 q_0$) \\
+    \bottomrule
+    \end{tabular}
+    \end{center}
+    \vspace{0.2cm}
+    \begin{qctip}{혼선 방지 규칙}
+        실습 중 타깃을 $\ket{11}$로 잡으면 양쪽 비트가 모두 1이므로 엔디언 순서와 무관하게 안전하게 직관을 확인할 수 있습니다!
+    \end{qctip}
+\end{frame}
+
+% Slide 27
+\begin{frame}[fragile]{[Qiskit 구현 Step 1] Phase Oracle: CZ 게이트}
+    \begin{qcblock}{타깃이 $\ket{11}$일 때의 위상 반전 오라클}
+        두 큐비트가 모두 $\ket{1}$일 때만 위상을 $-1$로 뒤집는 게이트는 바로 \textbf{Controlled-Z (CZ)} 게이트입니다!
+        $$CZ = \begin{pmatrix} 1 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 \\ 0 & 0 & 1 & 0 \\ 0 & 0 & 0 & \mathbf{-1} \end{pmatrix}$$
+    \end{qcblock}
+    \vspace{0.2cm}
+    \begin{lstlisting}[language=Python]
+# Target이 |11>일 때의 Phase Oracle
+qc.cz(0, 1)
+
+print(qc.draw(output='text'))
+# q_0: -[H]---*---
+#             |
+# q_1: -[H]---Z---
+\end{lstlisting}
+    단 1줄의 `qc.cz(0, 1)` 코드로 $4 \times 4$ 오라클 행렬이 회로에 반영됩니다.
+\end{frame}
+
+% Slide 28
+\begin{frame}[fragile]{[Qiskit 구현 Step 1] 일반 타깃을 위한 $X$-샌드위치 기법}
+    \begin{qcblock}{만약 타깃이 $\ket{11}$이 아니라 다른 상태라면?}
+        CZ 게이트는 양쪽 비트가 1일 때만 작동하므로, 0인 비트를 Pauli-$X$ 게이트로 앞뒤에서 감싸줍니다:
+    \end{qcblock}
+    \vspace{0.2cm}
+    \begin{itemize}
+        \item \textbf{타깃 $\ket{10}$ (수학 기준 $q_0=1, q_1=0$)}:
+        \begin{lstlisting}[language=Python]
+qc.x(1)      # q_1 비트를 일시적으로 0 -> 1로 반전
+qc.cz(0, 1)  # CZ 적용 (|11> 조건에서 부호 반전)
+qc.x(1)      # q_1 비트를 다시 원래대로 복원 (Uncompute)
+        \end{lstlisting}
+        \item \textbf{타깃 $\ket{00}$}:
+        \begin{lstlisting}[language=Python]
+qc.x([0, 1]) # 두 비트 모두 반전
+qc.cz(0, 1)
+qc.x([0, 1]) # 원상 복구
+        \end{lstlisting}
+    \end{itemize}
+    $\blacktriangleright$ 어떤 상태든 $X$ 게이트 샌드위치로 손쉽게 위상 오라클을 구성할 수 있습니다.
+\end{frame}
+
+% Slide 29
+\begin{frame}[fragile]{[Qiskit 구현 Step 2] Diffusion 회로 변환}
+    \begin{qcblock}{디퓨전 연산자 회로}
+        $D = 2\ket{s}\bra{s} - I$ 행렬은 게이트 5단계의 조합으로 정확하게 구현됩니다:
+        $$D = H^{\otimes 2} X^{\otimes 2} (CZ) X^{\otimes 2} H^{\otimes 2}$$
+    \end{qcblock}
+    \vspace{0.2cm}
+    \begin{lstlisting}[language=Python]
+# Step 2: Diffusion Operator 구현
+qc.h([0, 1])   # 1. 계산 기저로 변환 (|s> -> |00>)
+qc.x([0, 1])   # 2. |00>을 |11>로 이동
+qc.cz(0, 1)    # 3. 위상 -1 반전 (CZ 게이트)
+qc.x([0, 1])   # 4. 비트 원상 복구
+qc.h([0, 1])   # 5. 중첩 기저로 복귀
+\end{lstlisting}
+    \vspace{0.1cm}
+    \begin{qctip}{핵심 직관}
+        기저 변환($H$)과 $X$ 게이트를 통해, 복잡한 $2\ket{s}\bra{s}-I$ 행렬을 단순한 기본 게이트인 $CZ$ 하나로 구현해내는 기법입니다.
+    \end{qctip}
+\end{frame}
+
+% Slide 30
+\begin{frame}{[원리 해설] 왜 $HX CZ XH$가 디퓨전 행렬이 되는가?}
+    \begin{qcblock}{게이트 역산에 의한 수학적 유도}
+        \begin{enumerate}
+            \item $H^{\otimes 2}\ket{00} = \ket{s}$ 이므로, 거꾸로 $\ket{s} = H^{\otimes 2}\ket{00}$ 입니다.
+            \item 따라서 $\ket{s}\bra{s} = H^{\otimes 2} \ket{00}\bra{00} H^{\otimes 2}$ 가 성립합니다.
+            \item 디퓨전 정의식에 대입하면:
+            $$D = 2\ket{s}\bra{s} - I = H^{\otimes 2} \Big( 2\ket{00}\bra{00} - I \Big) H^{\otimes 2}$$
+            \item $2\ket{00}\bra{00} - I$는 $\ket{00}$ 상태만 $+1$이고 나머지는 $-1$인 연산자입니다.
+            전체에 $-1$ 글로벌 위상을 곱하면 $\ket{00}$만 $-1$을 주는 연산이 되며, 이는 $X (CZ) X$와 동일합니다.
+        \end{enumerate}
+    \end{qcblock}
+    \vspace{0.2cm}
+    $\blacktriangleright$ 즉, **"양자 회로는 수학적으로 풀기 어려운 행렬을 기본 게이트의 기저 변환 샌드위치로 치환하여 실행한다"**는 양자 프로그래밍의 핵심 원리입니다.
+\end{frame}
+
+% Slide 31
+\begin{frame}[fragile]{[Qiskit 조립] 2큐비트 Grover 전체 회로}
+    \begin{lstlisting}[language=Python]
+from qiskit import QuantumCircuit
+
+qc = QuantumCircuit(2, 2, name="Grover_11")
+
+# 1. 초기 균등 중첩
+qc.h([0, 1])
+
+# 2. Phase Oracle (Target: |11>)
+qc.cz(0, 1)
+
+# 3. Diffusion Operator
+qc.h([0, 1])
+qc.x([0, 1])
+qc.cz(0, 1)
+qc.x([0, 1])
+qc.h([0, 1])
+
+# 4. 측정 (Measurement)
+qc.measure([0, 1], [0, 1])
+\end{lstlisting}
+    \vspace{0.1cm}
+    단 12줄의 코드로 Grover 알고리즘 전체 파이프라인이 완성되었습니다.
+\end{frame}
+
+% Slide 32
+\begin{frame}[fragile]{[시뮬레이션 실행] 1024회 측정 결과 확인}
+    \begin{lstlisting}[language=Python]
+from qiskit_aer import AerSimulator
+
+# 시뮬레이터 인스턴스 생성 및 회로 실행 (1024회 샘플링)
+simulator = AerSimulator()
+job = simulator.run(qc, shots=1024)
+counts = job.result().get_counts()
+
+print("측정 결과 히스토그램:", counts)
+# 출력 결과:
+# 측정 결과 히스토그램: {'11': 1024}
+\end{lstlisting}
+    \vspace{0.2cm}
+    \begin{qcalert}{시뮬레이션 결과 분석}
+        \begin{itemize}
+            \item 1024번의 측정 중 \textbf{단 한 번의 예외도 없이 1024번 모두 정답인 '11'이 관측}되었습니다!
+            \item 1부에서 손계산으로 증명했던 $a_{11}' = 1.0, \; a_{\text{others}}' = 0$이 실제 Qiskit 시뮬레이터에서도 완벽하게 재현되었습니다.
+        \end{itemize}
+    \end{qcalert}
+\end{frame}
+
+% Slide 33
+\begin{frame}{[실습 심화] Shot 수에 따른 통계적 수렴 (Shot Noise)}
+    \begin{qcblock}{양자 측정과 Shot Noise}
+        \begin{itemize}
+            \item 양자 컴퓨터는 본질적으로 확률적 출력을 제공하므로, 통계적 신뢰도를 얻기 위해 반복 측정(Shots)을 수행합니다.
+            \item Shots 수가 작을 때와 충분히 클 때의 오차 변동을 비교합니다:
+        \end{itemize}
+    \end{qcblock}
+    \vspace{0.2cm}
+    \begin{center}
+    \begin{tabular}{rccc}
+    \toprule
+    \textbf{Shots 횟수} & \textbf{정답 '11' 관측 횟수} & \textbf{계산된 적중률} & \textbf{통계적 오차 (Shot Noise)} \\
+    \midrule
+    $10$ 회 & 10회 & 100.0\% & 샘플 부족으로 우연 가능성 존재 \\
+    $50$ 회 & 50회 & 100.0\% & 안정화 시작 \\
+    $200$ 회 & 200회 & 100.0\% & 오차 범위 $\pm 1\%$ 미만 \\
+    $1024$ 회 & 1024회 & 100.0\% & 신뢰도 $99.9\%$ 이상 확정 \\
+    \bottomrule
+    \end{tabular}
+    \end{center}
+    \vspace{0.2cm}
+    이론적 확률이 $1.0(100\%)$일 때는 Shots 수와 무관하게 100\%가 나오지만, $N \ge 8$이거나 하드웨어 노이즈가 있을 때는 Shots 수가 늘어날수록 참값에 수렴합니다.
+\end{frame}
+
+% Slide 34
+\begin{frame}{[하드웨어 현실] 이상적 시뮬레이터 vs 실제 NISQ 양자 칩}
+    \begin{qcblock}{실제 초전도 양자 칩(QPU)에서 이 회로를 돌리면?}
+        \begin{itemize}
+            \item 시뮬레이터에서는 100\% 정답만 나오지만, \textbf{실제 IBM이나 Rigetti 양자 컴퓨터에서는 정답률이 85\% $\sim$ 95\% 수준으로 떨어집니다.}
+        \end{itemize}
+    \end{qcblock}
+    \vspace{0.2cm}
+    \begin{itemize}
+        \item \textbf{게이트 에러(Gate Error)}:
+        1큐비트 게이트($H, X$)는 오차가 $0.1\%$ 미만이지만, 2큐비트 결합 게이트($CZ, CNOT$)는 물리적 마이크로파 간섭으로 인해 약 $1\% \sim 2\%$의 오차가 누적됩니다.
+        \item \textbf{결맞음 시간(Decoherence Time, $T_1, T_2$)}:
+        초전도 큐비트의 양자 상태 유지 시간은 약 $100 \sim 300\,\mu\mathrm{s}$에 불과합니다. 회로가 길어지면 상태가 열잡음에 의해 깨집니다.
+        \item \textbf{결론}: 따라서 실무에서는 노이즈를 이겨낼 수 있도록 \textbf{회로의 깊이(Circuit Depth)를 최대한 줄이는 최적화(Transpilation)}가 필수적입니다.
+    \end{itemize}
+\end{frame}
+
+% Slide 35
+\begin{frame}{[양자 지평] 양자 컴퓨터가 풀 수 있는 것 vs 못 푸는 것}
+    \begin{qcblock}{대중적 오해 바로잡기}
+        "양자 컴퓨터는 모든 암호를 순식간에 풀고, 모든 최적화 문제를 즉시 해결한다?" $\implies$ \textbf{틀렸습니다.}
+    \end{qcblock}
+    \vspace{0.2cm}
+    \begin{itemize}
+        \item \textbf{다항 시간(지수적 속도 향상)이 가능한 영역}:
+        소인수분해(Shor 알고리즘, RSA 해독), 양자 화학 및 재료 분자 시뮬레이션 $\implies$ \textbf{수학적 주기성(Periodicity)이 존재하는 특수 문제}에 한정.
+        \item \textbf{다항식(제곱근) 속도 향상에 그치는 영역}:
+        일반적인 비정렬 데이터 검색(Grover 알고리즘, $\mathcal{O}(\sqrt{N})$) $\implies$ $2^n$을 $2^{n/2}$로 줄여주지만, 여전히 지수적 복잡도에 머뭅니다.
+        \item \textbf{NP-완전(NP-Complete) 문제}:
+        외판원 순회 문제(TSP), 배낭 문제 등은 양자 컴퓨터로도 다항 시간($\mathcal{P}$) 안에 풀 수 없다는 것이 학계의 정설입니다.
+    \end{itemize}
+\end{frame}
+
+% Slide 36
+\begin{frame}{3일차 총정리 및 4일차(QubitSquare 실습) 예고}
+    \begin{qcblock}{오늘 학습한 핵심 3대 마일스톤}
+        \begin{enumerate}
+            \item \textbf{양자 간섭}: 단순 중첩의 한계를 극복하고 오답을 지워버리는 유일한 도구
+            \item \textbf{Grover 2단계 메커니즘}: Phase Oracle($-1$ 마킹) $\to$ Inversion about Mean($2\mu - x$)
+            \item \textbf{Qiskit 회로 조립}: $H, X, CZ$ 게이트를 이용한 양자 알고리즘 실제 시뮬레이션
+        \end{enumerate}
+    \end{qcblock}
+    \vspace{0.2cm}
+    \begin{qctip}{4일차 최종 예고: 양자 웹 플랫폼 QubitSquare 종합 실습}
+        \begin{itemize}
+            \item 내일 4일차에는 코딩 환경을 넘어, \textbf{웹 브라우저 기반 양자 플랫폼 QubitSquare}에 접속합니다!
+            \item 5가지 핵심 퍼즐 조각으로 회로를 블록 단위로 설계하고, 브라우저 로컬 WASM 엔진과 원격 QPU를 비교 분석하는 최종 종합 실습을 진행합니다.
+        \end{itemize}
+    \end{qctip}
+\end{frame}
+
+\end{document}
