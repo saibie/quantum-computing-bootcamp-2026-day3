@@ -866,7 +866,67 @@
     \end{qcalert}
 \end{frame}
 
-% Slide 29 (Part 1 Wrap-up & Break - NO pauses)
+% Slide 29 (NEW Option A-1: Domestic IBM Quantum hardware photo & Nighthawk R2 specs)
+\begin{frame}{현장 사례 1: 국내 설치 IBM 양자컴퓨터 실물과 성능}
+    \begin{columns}[c]
+        \begin{column}{0.45\textwidth}
+            \begin{center}
+                \includegraphics[width=0.95\linewidth, height=2.7cm, keepaspectratio]{figures/ibm_yonsei_exterior.jpg}\\[1pt]
+                {\scriptsize IBM Quantum System One 외관 (연세대)}\\[0.14cm]
+                \includegraphics[width=0.95\linewidth, height=3.1cm, keepaspectratio]{figures/ibm_yonsei_cryostat.jpg}\\[1pt]
+                {\scriptsize 초전도 희석 냉동기 내부 구조}
+            \end{center}
+        \end{column}
+        \begin{column}{0.53\textwidth}
+            \begin{qcblock}{연세대 Nighthawk R2 주요 제원}
+                \begin{itemize}\setlength{\itemsep}{2pt}
+                    \item \textbf{규모}: 계산용 120큐비트 (총 458큐비트 탑재)
+                    \pause
+                    \item \textbf{연결 구조}: 바둑판 격자 배열로 이웃 최대 4개 직접 연결
+                    \pause
+                    \item \textbf{정확도·속도}: 2큐비트 게이트 정확도 \textbf{99.7\%}, 초당 약 10만 단계 연산
+                \end{itemize}
+            \end{qcblock}
+            \pause
+            \vspace{0.12cm}
+            \begin{qcalert}{99.7\% 정확도에서도 오류가 쌓이는 이유}
+                1회 정확도가 $99.7\%$여도 1,000단계를 연속 실행하면 오류 없이 끝날 확률은 $0.997^{1000} \approx \mathbf{5\%}$ 수준으로 감소.
+            \end{qcalert}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% Slide 30 (NEW Option A-2: Real ibm_yonsei 3-qubit GHZ run — cropped circuit & histogram)
+\begin{frame}{현장 사례 2: \texttt{ibm\_yonsei} 실제 실행 결과 (2일차 GHZ)}
+    \begin{columns}[c]
+        \begin{column}{0.47\textwidth}
+            \begin{qcblock}{3큐비트 GHZ 실측 분포 (1,000 Shots)}
+                \begin{center}
+                    \includegraphics[width=0.98\linewidth, height=4.4cm, keepaspectratio]{figures/ibm_yonsei_ghz_hist.png}\\[2pt]
+                    {\scriptsize \texttt{000}·\texttt{111} 외 오답(\texttt{001, 010, 011, 101, 110}) 관측}
+                \end{center}
+            \end{qcblock}
+        \end{column}
+        \begin{column}{0.51\textwidth}
+            \begin{qctip}{실제 칩에 맞춰 분해된 회로도 (\texttt{ibm\_yonsei})}
+                \begin{center}
+                    \includegraphics[width=0.98\linewidth, height=2.25cm, keepaspectratio]{figures/ibm_yonsei_ghz_circuit.png}
+                \end{center}
+            \end{qctip}
+            \pause
+            \vspace{0.05cm}
+            \begin{qcblock}{실측에서 확인한 두 가지 하드웨어 현실}
+                \begin{itemize}\setlength{\itemsep}{1pt}
+                    \item \textbf{게이트 쪼개짐}: $H, \mathrm{CX}, \mathrm{CX}$ 3개 회로를 실제 칩 기본 게이트($R_z, \sqrt{X}, \mathrm{CZ}$) 여러 개로 분해해 실행
+                    \pause
+                    \item \textbf{잡음 혼입}: 짧은 GHZ에도 오답이 일부 섞이므로, 수천 단계인 16큐비트 Grover는 시뮬레이터로 원리 검증
+                \end{itemize}
+            \end{qcblock}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% Slide 31 (Part 1 Wrap-up & Break - NO pauses)
 \begin{frame}{1부 마무리 점검 및 중간 휴식 안내 (20분)}
     \begin{qcblock}{1부 점검}
         \begin{itemize}
@@ -874,7 +934,7 @@
             \item $\checkmark$ 대수 증명($D\ket{\psi} = \sum(2\bar{a}-a_x)\ket{x}$) 및 기하 증명(2차원 평면 $2\theta$ 회전, $k^*$, 과회전)
             \item $\checkmark$ 전역 위상과 $\mathrm{MCX}\cdot\mathrm{MCZ}$ 기반 $D$, Toy Oracle($X$-샌드위치) 및 5큐비트 전체 회로도
             \item $\checkmark$ 검산 규칙 기반 Grover($M \ge 1$), 8-노드 2-색칠 문제 및 임시 보조 큐비트 정리 개념
-            \item $\checkmark$ 현재 양자 하드웨어의 잡음 현실과 Grover 알고리즘의 제곱근 가속 범위
+            \item $\checkmark$ 현재 양자 하드웨어의 잡음 현실(국내 IBM 실측 사례 포함)과 Grover의 제곱근 가속 범위
         \end{itemize}
     \end{qcblock}
     \vspace{0.15cm}
